@@ -37,3 +37,18 @@ pub struct ApiResponse<T> {
     pub data: Option<T>,
     pub message: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct PaginationQuery {
+    pub page: Option<u32>,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PaginatedResponse<T> {
+    pub items: Vec<T>,
+    pub total: i64,
+    pub page: u32,
+    pub limit: u32,
+    pub total_pages: u32,
+}

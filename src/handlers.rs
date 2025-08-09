@@ -3,7 +3,7 @@ use serde_json::json;
 use crate::auth::AuthManager;
 use crate::database::Database;
 use crate::git_manager::GitManager;
-use crate::models::{LoginRequest, AddRepositoryRequest, ApiResponse};
+use crate::models::{LoginRequest, AddRepositoryRequest, ApiResponse, PaginationQuery, PaginatedResponse};
 
 lazy_static::lazy_static! {
     static ref AUTH_MANAGER: AuthManager = AuthManager::new();
@@ -39,6 +39,7 @@ fn logout() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
 fn get_repositories(db: Database) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     warp::path!("repositories")
         .and(warp::get())
+        .and(warp::query::<PaginationQuery>())
         .and(with_auth())
         .and(with_db(db))
         .and_then(handle_get_repositories)
@@ -160,12 +161,26 @@ async fn handle_logout(_username: String, token: String) -> Result<Box<dyn Reply
     Ok(Box::new(warp::reply::json(&response)))
 }
 
-async fn handle_get_repositories(_username: String, db: Database) -> Result<Box<dyn Reply>, Rejection> {
-    match db.get_all_repositories().await {
-        Ok(repositories) => {
+async fn handle_get_repositories(pagination: PaginationQuery, _username: String, db: Database) -> Result<Box<dyn Reply>, Rejection> {
+    // Set default values for pagination
+    let page = pagination.page.unwrap_or(1).max(1);
+    let limit = pagination.limit.unwrap_or(10).min(100); // Cap at 100 items per page
+    
+    match db.get_repositories_paginated(page, limit).await {
+        Ok((repositories, total)) => {
+            let total_pages = ((total as f64) / (limit as f64)).ceil() as u32;
+            
+            let paginated_response = PaginatedResponse {
+                items: repositories,
+                total,
+                page,
+                limit,
+                total_pages,
+            };
+            
             let response = ApiResponse {
                 success: true,
-                data: Some(repositories),
+                data: Some(paginated_response),
                 message: None,
             };
             Ok(Box::new(warp::reply::json(&response)))

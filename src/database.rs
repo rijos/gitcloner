@@ -92,7 +92,45 @@ impl Database {
                 status: row.get("status"),
             });
         }
+
         Ok(repositories)
+    }
+
+    pub async fn get_repositories_paginated(&self, page: u32, limit: u32) -> Result<(Vec<Repository>, i64)> {
+        let offset = (page - 1) * limit;
+        
+        // Get total count
+        let count_row = sqlx::query("SELECT COUNT(*) as count FROM repositories")
+            .fetch_one(&self.pool)
+            .await?;
+        let total: i64 = count_row.get("count");
+        
+        // Get paginated results
+        let rows = sqlx::query(
+            "SELECT id, url, name, local_path, last_synced, created_at, status 
+             FROM repositories 
+             ORDER BY created_at DESC 
+             LIMIT ? OFFSET ?"
+        )
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut repositories = Vec::new();
+        for row in rows {
+            repositories.push(Repository {
+                id: row.get("id"),
+                url: row.get("url"),
+                name: row.get("name"),
+                local_path: row.get("local_path"),
+                last_synced: row.get("last_synced"),
+                created_at: row.get("created_at"),
+                status: row.get("status"),
+            });
+        }
+
+        Ok((repositories, total))
     }
 
     pub async fn get_repository_by_url(&self, url: &str) -> Result<Option<Repository>> {

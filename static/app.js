@@ -2,6 +2,8 @@ class GitCloner {
     constructor() {
         this.token = localStorage.getItem('token');
         this.username = localStorage.getItem('username');
+        this.currentPage = 1;
+        this.itemsPerPage = 10;
         this.init();
     }
 
@@ -109,12 +111,13 @@ class GitCloner {
         }
     }
 
-    async loadRepositories() {
+    async loadRepositories(page = 1) {
+        this.currentPage = page;
         const listContainer = document.getElementById('repositoriesList');
         listContainer.innerHTML = '<div style="padding: 20px; text-align: center;">Loading repositories...</div>';
 
         try {
-            const response = await fetch('/api/repositories', {
+            const response = await fetch(`/api/repositories?page=${page}&limit=${this.itemsPerPage}`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
                 },
@@ -132,8 +135,9 @@ class GitCloner {
         }
     }
 
-    renderRepositories(repositories) {
+    renderRepositories(paginatedData) {
         const listContainer = document.getElementById('repositoriesList');
+        const repositories = paginatedData.items;
 
         if (repositories.length === 0) {
             listContainer.innerHTML = `
@@ -145,7 +149,7 @@ class GitCloner {
             return;
         }
 
-        listContainer.innerHTML = repositories.map(repo => `
+        const repositoriesHtml = repositories.map(repo => `
             <div class="repo-item" data-url="${encodeURIComponent(repo.url)}">
                 <div class="repo-info">
                     <div class="repo-name">${this.escapeHtml(repo.name)}</div>
@@ -166,8 +170,47 @@ class GitCloner {
             </div>
         `).join('');
 
+        // Create pagination controls
+        const paginationHtml = this.createPaginationControls(paginatedData);
+        
+        listContainer.innerHTML = repositoriesHtml + paginationHtml;
+
         // Bind action buttons
         this.bindRepositoryActions();
+    }
+
+    createPaginationControls(paginatedData) {
+        const { page, total_pages, total } = paginatedData;
+        
+        if (total_pages <= 1) {
+            return '<div class="pagination-info">Showing all ' + total + ' repositories</div>';
+        }
+
+        let paginationHtml = '<div class="pagination-container">';
+        paginationHtml += '<div class="pagination-info">Page ' + page + ' of ' + total_pages + ' (' + total + ' total)</div>';
+        paginationHtml += '<div class="pagination-controls">';
+        
+        // Previous button
+        if (page > 1) {
+            paginationHtml += '<button class="btn btn-small pagination-btn" data-page="' + (page - 1) + '">Previous</button>';
+        }
+        
+        // Page numbers (show max 5 pages around current)
+        const startPage = Math.max(1, page - 2);
+        const endPage = Math.min(total_pages, page + 2);
+        
+        for (let p = startPage; p <= endPage; p++) {
+            const activeClass = p === page ? ' active' : '';
+            paginationHtml += '<button class="btn btn-small pagination-btn' + activeClass + '" data-page="' + p + '">' + p + '</button>';
+        }
+        
+        // Next button
+        if (page < total_pages) {
+            paginationHtml += '<button class="btn btn-small pagination-btn" data-page="' + (page + 1) + '">Next</button>';
+        }
+        
+        paginationHtml += '</div></div>';
+        return paginationHtml;
     }
 
     bindRepositoryActions() {
@@ -185,6 +228,16 @@ class GitCloner {
                 const url = e.target.dataset.url;
                 if (confirm('Are you sure you want to remove this repository?')) {
                     this.removeRepository(url);
+                }
+            });
+        });
+
+        // Pagination buttons
+        document.querySelectorAll('.pagination-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const page = parseInt(e.target.dataset.page);
+                if (page && page !== this.currentPage) {
+                    this.loadRepositories(page);
                 }
             });
         });
