@@ -32,7 +32,7 @@ fn login(db: Database) -> impl Filter<Extract = impl Reply, Error = Rejection> +
 fn logout() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     warp::path!("auth" / "logout")
         .and(warp::post())
-        .and(with_auth())
+        .and(with_auth_token())
         .and_then(handle_logout)
 }
 
@@ -96,6 +96,24 @@ fn with_auth() -> impl Filter<Extract = (String,), Error = Rejection> + Clone {
         })
 }
 
+fn with_auth_token() -> impl Filter<Extract = (String, String), Error = Rejection> + Clone {
+    warp::header::optional::<String>("authorization")
+        .and_then(|auth_header: Option<String>| async move {
+            match auth_header {
+                Some(header) if header.starts_with("Bearer ") => {
+                    let token = &header[7..];
+                    if let Some(username) = AUTH_MANAGER.validate_session(token).await {
+                        Ok((username, token.to_string()))
+                    } else {
+                        Err(warp::reject::custom(Unauthorized))
+                    }
+                }
+                _ => Err(warp::reject::custom(Unauthorized)),
+            }
+        })
+        .untuple_one()
+}
+
 async fn handle_login(request: LoginRequest, db: Database) -> Result<Box<dyn Reply>, Rejection> {
     match db.get_user_by_username(&request.username).await {
         Ok(Some(user)) => {
@@ -130,7 +148,10 @@ async fn handle_login(request: LoginRequest, db: Database) -> Result<Box<dyn Rep
     }
 }
 
-async fn handle_logout(_username: String) -> Result<Box<dyn Reply>, Rejection> {
+async fn handle_logout(_username: String, token: String) -> Result<Box<dyn Reply>, Rejection> {
+    // Remove the session from the auth manager
+    AUTH_MANAGER.remove_session(&token).await;
+    
     let response = ApiResponse {
         success: true,
         data: Some(json!({"message": "Logged out successfully"})),
@@ -220,11 +241,49 @@ async fn handle_remove_repository(
     let url_clone = url.clone();
     let decoded_url = urlencoding::decode(&url).unwrap_or_else(|_| url_clone.into());
     
+    // First, get the repository info to obtain the local path
+    let repo_info = match db.get_repository_by_url(&decoded_url).await {
+        Ok(Some(repo)) => repo,
+        Ok(None) => {
+            let response = ApiResponse::<()> {
+                success: false,
+                data: None,
+                message: Some("Repository not found".to_string()),
+            };
+            return Ok(Box::new(warp::reply::with_status(
+                warp::reply::json(&response), 
+                warp::http::StatusCode::NOT_FOUND
+            )));
+        }
+        Err(e) => {
+            let response = ApiResponse::<()> {
+                success: false,
+                data: None,
+                message: Some(format!("Failed to get repository info: {}", e)),
+            };
+            return Ok(Box::new(warp::reply::with_status(
+                warp::reply::json(&response), 
+                warp::http::StatusCode::INTERNAL_SERVER_ERROR
+            )));
+        }
+    };
+
+    // Remove the local directory if it exists
+    if std::path::Path::new(&repo_info.local_path).exists() {
+        if let Err(e) = std::fs::remove_dir_all(&repo_info.local_path) {
+            tracing::warn!("Failed to remove directory {}: {}", repo_info.local_path, e);
+            // Continue with database removal even if directory removal fails
+        } else {
+            tracing::info!("Removed directory: {}", repo_info.local_path);
+        }
+    }
+    
+    // Remove from database
     match db.remove_repository(&decoded_url).await {
         Ok(_) => {
             let response = ApiResponse {
                 success: true,
-                data: Some(json!({"message": "Repository removed successfully"})),
+                data: Some(json!({"message": "Repository and local files removed successfully"})),
                 message: None,
             };
             Ok(Box::new(warp::reply::json(&response)))
@@ -233,7 +292,7 @@ async fn handle_remove_repository(
             let response = ApiResponse::<()> {
                 success: false,
                 data: None,
-                message: Some(format!("Failed to remove repository: {}", e)),
+                message: Some(format!("Failed to remove repository from database: {}", e)),
             };
             Ok(Box::new(warp::reply::with_status(warp::reply::json(&response), warp::http::StatusCode::INTERNAL_SERVER_ERROR)))
         }

@@ -1,4 +1,4 @@
-use bcrypt::{hash, verify, DEFAULT_COST};
+use bcrypt::verify;
 use anyhow::Result;
 use uuid::Uuid;
 use std::collections::HashMap;
@@ -15,10 +15,6 @@ impl AuthManager {
         AuthManager {
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
-    }
-
-    pub fn hash_password(password: &str) -> Result<String> {
-        Ok(hash(password, DEFAULT_COST)?)
     }
 
     pub fn verify_password(password: &str, hash: &str) -> Result<bool> {

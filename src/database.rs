@@ -95,6 +95,29 @@ impl Database {
         Ok(repositories)
     }
 
+    pub async fn get_repository_by_url(&self, url: &str) -> Result<Option<Repository>> {
+        let row = sqlx::query(
+            "SELECT id, url, name, local_path, last_synced, created_at, status FROM repositories WHERE url = ?"
+        )
+        .bind(url)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some(row) = row {
+            Ok(Some(Repository {
+                id: row.get("id"),
+                url: row.get("url"),
+                name: row.get("name"),
+                local_path: row.get("local_path"),
+                last_synced: row.get("last_synced"),
+                created_at: row.get("created_at"),
+                status: row.get("status"),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub async fn remove_repository(&self, url: &str) -> Result<()> {
         sqlx::query("DELETE FROM repositories WHERE url = ?")
             .bind(url)

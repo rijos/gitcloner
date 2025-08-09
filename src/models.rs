@@ -26,12 +26,6 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct LoginResponse {
-    pub token: String,
-    pub username: String,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct AddRepositoryRequest {
     pub url: String,
