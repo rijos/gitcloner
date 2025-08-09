@@ -1,0 +1,93 @@
+name: Build Linux x64 Executable
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          pkg-config \
+          libssl-dev \
+          libsqlite3-dev \
+          libgit2-dev \
+          libssh2-1-dev \
+          libz-dev \
+          cmake
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        targets: x86_64-unknown-linux-gnu
+        
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+    
+    - name: Run tests
+      run: cargo test --verbose
+      
+    - name: Build release binary
+      run: cargo build --release --target x86_64-unknown-linux-gnu
+      
+    - name: Strip binary
+      run: strip target/x86_64-unknown-linux-gnu/release/gitcloner
+      
+    - name: Prepare artifacts
+      run: |
+        mkdir -p artifacts
+        cp target/x86_64-unknown-linux-gnu/release/gitcloner artifacts/
+        cp target/x86_64-unknown-linux-gnu/release/gitc artifacts/
+        cp README.md artifacts/
+        cp -r static artifacts/ || true
+        cp -r migrations artifacts/ || true
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: gitcloner-linux-x64
+        path: artifacts/
+        retention-days: 30
+        
+    - name: Create release archive
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        cd artifacts
+        tar -czf ../gitcloner-linux-x64-${{ github.ref_name }}.tar.gz *
+        cd ..
+        
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: gitcloner-linux-x64-${{ github.ref_name }}.tar.gz
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

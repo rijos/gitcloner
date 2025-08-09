@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS repositories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    local_path TEXT NOT NULL,
+    last_synced DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status TEXT DEFAULT 'pending'
+);

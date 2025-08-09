@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git Cloner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+        }
+
+        .login-form {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 400px;
+            margin: 50px auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="password"], input[type="url"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-success {
+            background: #27ae60;
+        }
+
+        .btn-success:hover {
+            background: #219a52;
+        }
+
+        .add-repo-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .add-repo-form .form-row {
+            display: flex;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .add-repo-form .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .repositories-list {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .repo-item {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .repo-item:last-child {
+            border-bottom: none;
+        }
+
+        .repo-info {
+            flex: 1;
+        }
+
+        .repo-name {
+            font-weight: 600;
+            font-size: 18px;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .repo-url {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .repo-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .status-synced {
+            background: #27ae60;
+        }
+
+        .status-pending {
+            background: #f39c12;
+        }
+
+        .status-error {
+            background: #e74c3c;
+        }
+
+        .repo-meta {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 5px;
+        }
+
+        .repo-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .logout-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .logout-btn:hover {
+            background: #7f8c8d;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Form -->
+        <div id="loginContainer" class="login-form">
+            <h2>Git Cloner Login</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+            <div id="loginAlert" class="alert hidden"></div>
+        </div>
+
+        <!-- Main App -->
+        <div id="appContainer" class="hidden">
+            <div class="header">
+                <h1>Git Cloner</h1>
+                <div>
+                    <span id="userInfo"></span>
+                    <button id="logoutBtn" class="logout-btn">Logout</button>
+                </div>
+            </div>
+
+            <div id="appAlert" class="alert hidden"></div>
+
+            <!-- Add Repository Form -->
+            <div class="add-repo-form">
+                <h3>Add Repository</h3>
+                <form id="addRepoForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="repoUrl">Git Repository URL:</label>
+                            <input type="url" id="repoUrl" name="repoUrl" placeholder="https://github.com/user/repo.git" required>
+                        </div>
+                        <button type="submit" class="btn">Clone Repository</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Repositories List -->
+            <div class="repositories-list">
+                <div id="repositoriesHeader" style="padding: 20px; border-bottom: 1px solid #eee; background: #f8f9fa;">
+                    <h3>Cloned Repositories</h3>
+                </div>
+                <div id="repositoriesList">
+                    <!-- Repositories will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/app.js"></script>
+</body>
+</html>

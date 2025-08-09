@@ -1,0 +1,30 @@
+[package]
+name = "gitcloner"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gitcloner"
+path = "src/main.rs"
+
+[[bin]]
+name = "gitc"
+path = "src/bin/gitc.rs"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+warp = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+bcrypt = "0.15"
+git2 = "0.18"
+tokio-cron-scheduler = "0.9"
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+lazy_static = "1.4"
+urlencoding = "2.1"
